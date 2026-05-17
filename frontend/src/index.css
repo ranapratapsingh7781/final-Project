@@ -1,0 +1,32 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #e2e8f0;
+  color: #0f172a;
+  min-height: 100vh;
+}
+
+a {
+  color: #1d4ed8;
+  text-decoration: none;
+}
+
+button {
+  border-radius: 0.85rem;
+}
+
+input,
+button,
+select,
+textarea {
+  font: inherit;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}

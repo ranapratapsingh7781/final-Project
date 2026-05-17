@@ -1,0 +1,19 @@
+{
+  "name": "e-wallet",
+  "version": "1.0.0",
+  "description": "Online E-wallet MERN project",
+  "scripts": {
+    "install-server": "cd backend && npm install",
+    "install-client": "cd frontend && npm install",
+    "install-all": "npm run install-server && npm run install-client",
+    "server": "cd backend && npm run dev",
+    "client": "cd frontend && npm start",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "start": "npm run dev",
+    "build": "cd frontend && npm run build",
+    "build-all": "npm run install-all && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  }
+}
