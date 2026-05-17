@@ -105,8 +105,6 @@ const HelpCenter = () => {
     setTimeout(() => setSubmitStatus(null), 5000);
   };
 
-  const categories = ['All', ...new Set(faqs.map(faq => faq.category))];
-
   return (
     <div style={{ padding: '20px', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
       <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
