@@ -6,7 +6,6 @@ const Retirement = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [editingGoal, setEditingGoal] = useState(null);
-  const [editingAge, setEditingAge] = useState(false);
   const [formData, setFormData] = useState({
     targetAmount: '',
     retirementAge: 65,
