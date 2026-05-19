@@ -72,4 +72,8 @@ const startServer = async (port) => {
 };
 
 // Initialize and start the server
-startServer(BASE_PORT);
+if (process.env.VERCEL) {
+  module.exports = app;
+} else {
+  startServer(BASE_PORT);
+}
