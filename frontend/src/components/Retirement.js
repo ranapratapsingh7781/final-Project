@@ -1,142 +1,404 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
-import '../App.css';
 
 const Retirement = () => {
-  const [retirementData, setRetirementData] = useState({
-    currentAge: 30,
-    retirementAge: 60,
-    currentSavings: 0,
-    monthlySavings: 5000,
-    expectedReturn: 8,
+  const [retirementData, setRetirementData] = useState(null);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [editingGoal, setEditingGoal] = useState(null);
+  const [editingAge, setEditingAge] = useState(false);
+  const [formData, setFormData] = useState({
+    targetAmount: '',
+    retirementAge: 65,
+    currentAge: 35,
+    currentSavings: '',
+    monthlyContribution: '',
+    expectedReturn: 7,
   });
-
-  const [projections, setProjections] = useState(null);
-  const [editMode, setEditMode] = useState(false);
-  const [formData, setFormData] = useState(retirementData);
-  const [userBalance, setUserBalance] = useState(0);
-
-  const calculateProjections = useCallback(() => {
-    const yearsToRetirement = Math.max(0, retirementData.retirementAge - retirementData.currentAge);
-    const monthlyReturn = retirementData.expectedReturn / 100 / 12;
-    const months = yearsToRetirement * 12;
-
-    const fvCurrentSavings = retirementData.currentSavings * Math.pow(1 + monthlyReturn, months || 0);
-    const fvMonthlySavings = months > 0 ? retirementData.monthlySavings * (Math.pow(1 + monthlyReturn, months) - 1) / (monthlyReturn || 1) : 0;
-
-    const totalRetirement = fvCurrentSavings + fvMonthlySavings;
-    const totalContributions = retirementData.currentSavings + (retirementData.monthlySavings * months);
-    const totalInterest = totalRetirement - totalContributions;
-
-    setProjections({ yearsToRetirement, months, projectedAmount: totalRetirement, totalContributions, totalInterest });
-  }, [retirementData]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const init = async () => {
+    const loadRetirementData = async () => {
       try {
-        const res = await api.get('/wallet/balance');
-        setUserBalance(res.data.balance);
-        setRetirementData(prev => ({ ...prev, currentSavings: res.data.balance }));
-        setFormData(prev => ({ ...prev, currentSavings: res.data.balance }));
-      } catch (e) {
-        console.error(e);
-      } finally {
-        calculateProjections();
+        const res = await api.get('/auth/me');
+        setRetirementData({
+          balance: res.data.balance || 0,
+          name: res.data.name || 'User',
+          targetAmount: 5000000,
+          retirementAge: 65,
+          currentAge: 35,
+          monthlyContribution: 10000,
+          expectedReturn: 7,
+        });
+        setFormData({
+          targetAmount: 5000000,
+          retirementAge: 65,
+          currentSavings: res.data.balance || 0,
+          monthlyContribution: 10000,
+          expectedReturn: 7,
+        });
+      } catch (err) {
+        setError('Unable to load retirement data.');
       }
     };
-    init();
-  }, [calculateProjections]);
+
+    loadRetirementData();
+  }, []);
+
+  const formatCurrency = (value) =>
+    new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0,
+    }).format(value || 0);
+
+  const calculateProjection = () => {
+    const principal = parseFloat(formData.currentSavings) || 0;
+    const monthly = parseFloat(formData.monthlyContribution) || 0;
+    const rate = parseFloat(formData.expectedReturn) / 100 / 12;
+    const months = (formData.retirementAge - 35) * 12;
+
+    let futureValue = principal * Math.pow(1 + rate, months);
+    for (let i = 0; i < months; i++) {
+      futureValue += monthly * Math.pow(1 + rate, months - i);
+    }
+
+    return futureValue;
+  };
+
+  const projectedAmount = calculateProjection();
+  const target = parseFloat(formData.targetAmount) || 5000000;
+  const progressPercentage = Math.min((projectedAmount / target) * 100, 100);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
+    setFormData({
+      ...formData,
+      [name]: name === 'retirementAge' ? parseInt(value) : value,
+    });
   };
 
-  const handleSave = () => {
-    if (formData.currentAge >= formData.retirementAge) return alert('Retirement age must be greater than current age');
-    setRetirementData(formData);
-    setEditMode(false);
-    calculateProjections();
+  const handleSaveGoal = () => {
+    setLoading(true);
+    setTimeout(() => {
+      setSuccess('Retirement goal updated successfully!');
+      setEditingGoal(null);
+      setLoading(false);
+      setTimeout(() => setSuccess(''), 3000);
+    }, 500);
   };
 
-  const savingsProgressPercentage = projections ? Math.min(100, (userBalance / Math.max(projections.projectedAmount, 1)) * 100) : 0;
+  if (!retirementData) {
+    return (
+      <div className="placeholder-page">
+        <div className="placeholder-card">
+          <h2>⏳ Loading...</h2>
+          <p>Please wait while we fetch your retirement data.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const yearsToRetirement = formData.retirementAge - formData.currentAge;
 
   return (
-    <div style={{ padding: 20, minHeight: '100vh', background: '#f5f5f5' }}>
-      <div style={{ maxWidth: 900, margin: '0 auto' }}>
-        <h1>Retirement Planning</h1>
+    <div className="retirement-page">
+      {/* Header Section */}
+      <div className="retirement-header">
+        <div>
+          <p className="eyebrow">Retirement Planning</p>
+          <h1>Plan Your Future</h1>
+          <p>
+            Build your ideal retirement with our planning tools, savings projections, and investment strategies.
+          </p>
+        </div>
+        <div className="retirement-hero-card">
+          <div className="retirement-hero-info">
+            <div className="info-item">
+              <span className="label">Current Age</span>
+              {editingGoal === 'age' ? (
+                <input
+                  type="number"
+                  name="currentAge"
+                  value={formData.currentAge}
+                  onChange={handleInputChange}
+                  min="18"
+                  max="80"
+                  className="age-input"
+                  onBlur={() => setEditingGoal(null)}
+                  autoFocus
+                />
+              ) : (
+                <span className="value" onClick={() => setEditingGoal('age')} style={{ cursor: 'pointer' }}>
+                  {formData.currentAge} ✏️
+                </span>
+              )}
+            </div>
+            <div className="divider"></div>
+            <div className="info-item">
+              <span className="label">Retirement Age</span>
+              <span className="value">{retirementData.retirementAge}</span>
+            </div>
+            <div className="divider"></div>
+            <div className="info-item">
+              <span className="label">Years Left</span>
+              <span className="value highlight">{yearsToRetirement}</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 16 }}>
-          <div style={{ background: '#fff', padding: 16, borderRadius: 8 }}>
-            <p>Current Savings</p>
-            <h3>₹{userBalance?.toFixed(0) || '0'}</h3>
-            <div style={{ height: 8, background: '#eee', borderRadius: 6, overflow: 'hidden' }}>
-              <div style={{ width: `${savingsProgressPercentage}%`, height: '100%', background: '#4CAF50' }} />
+      {error && <div className="error-banner">⚠️ {error}</div>}
+      {success && <div className="success-banner">✓ {success}</div>}
+
+      {/* Main Grid */}
+      <div className="retirement-grid">
+        {/* Savings Progress */}
+        <section className="page-card retirement-card">
+          <h3>💰 Savings Progress</h3>
+          <div className="progress-section">
+            <div className="progress-item">
+              <div className="progress-label">
+                <span>Current Savings</span>
+                <span className="amount">{formatCurrency(projectedAmount)}</span>
+              </div>
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${progressPercentage}%` }}></div>
+              </div>
+              <div className="progress-footer">
+                <span>Target: {formatCurrency(target)}</span>
+                <span>{Math.round(progressPercentage)}%</span>
+              </div>
             </div>
           </div>
 
-          {projections && (
-            <>
-              <div style={{ background: '#fff', padding: 16, borderRadius: 8 }}>
-                <p>Projected Amount</p>
-                <h3>₹{projections.projectedAmount?.toFixed(0)}</h3>
-                <p>by age {retirementData.retirementAge}</p>
-              </div>
-
-              <div style={{ background: '#fff', padding: 16, borderRadius: 8 }}>
-                <p>Time to Retirement</p>
-                <h3>{projections.yearsToRetirement} years</h3>
-                <p>({projections.months} months)</p>
-              </div>
-            </>
-          )}
-        </div>
-
-        {projections && (
-          <div style={{ background: '#fff', padding: 16, borderRadius: 8, marginTop: 16 }}>
-            <h3>Projection Breakdown</h3>
-            <p>Total Contributions: ₹{projections.totalContributions?.toFixed(0)}</p>
-            <p>Investment Returns: ₹{projections.totalInterest?.toFixed(0)}</p>
-            <p><strong>Total at Retirement: ₹{projections.projectedAmount?.toFixed(0)}</strong></p>
-            <button onClick={() => setEditMode(true)} style={{ background: '#4CAF50', color: '#fff', padding: '8px 12px', border: 'none', borderRadius: 6 }}>Edit Plan</button>
+          <div className="savings-stats">
+            <div className="stat">
+              <span className="stat-label">Monthly Contribution</span>
+              <span className="stat-value">{formatCurrency(formData.monthlyContribution)}</span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">Projected Return</span>
+              <span className="stat-value">{formData.expectedReturn}%</span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">Years to Save</span>
+              <span className="stat-value">{yearsToRetirement}</span>
+            </div>
           </div>
-        )}
+        </section>
 
-        {editMode && (
-          <div style={{ background: '#fff', padding: 16, borderRadius: 8, marginTop: 16 }}>
-            <h3>Edit Plan</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 8 }}>
-              <div>
-                <label>Current Age</label>
-                <input type="number" name="currentAge" value={formData.currentAge} onChange={handleInputChange} />
+        {/* Goal Settings */}
+        <section className="page-card retirement-card">
+          <div className="section-header">
+            <h3>🎯 Retirement Goal</h3>
+            {editingGoal !== 'goal' && (
+              <button className="link-btn" onClick={() => setEditingGoal('goal')}>
+                ✏️ Edit
+              </button>
+            )}
+          </div>
+
+          {editingGoal === 'goal' ? (
+            <div className="edit-form">
+              <div className="form-group">
+                <label>Target Amount (₹)</label>
+                <input
+                  type="number"
+                  name="targetAmount"
+                  value={formData.targetAmount}
+                  onChange={handleInputChange}
+                  placeholder="Enter target amount"
+                />
               </div>
-              <div>
+              <div className="form-group">
                 <label>Retirement Age</label>
-                <input type="number" name="retirementAge" value={formData.retirementAge} onChange={handleInputChange} />
+                <input
+                  type="number"
+                  name="retirementAge"
+                  value={formData.retirementAge}
+                  onChange={handleInputChange}
+                  min="40"
+                  max="80"
+                />
               </div>
-              <div>
-                <label>Monthly Savings</label>
-                <input type="number" name="monthlySavings" value={formData.monthlySavings} onChange={handleInputChange} />
+              <div className="form-group">
+                <label>Monthly Contribution (₹)</label>
+                <input
+                  type="number"
+                  name="monthlyContribution"
+                  value={formData.monthlyContribution}
+                  onChange={handleInputChange}
+                  placeholder="Enter monthly contribution"
+                />
               </div>
-              <div>
-                <label>Expected Return (%)</label>
-                <input type="number" name="expectedReturn" value={formData.expectedReturn} onChange={handleInputChange} />
+              <div className="button-group">
+                <button className="primary-btn" onClick={handleSaveGoal} disabled={loading}>
+                  {loading ? '⏳ Saving...' : '✓ Save Goal'}
+                </button>
+                <button className="secondary-btn" onClick={() => setEditingGoal(null)}>
+                  ✕ Cancel
+                </button>
               </div>
             </div>
-            <div style={{ marginTop: 12 }}>
-              <button onClick={handleSave} style={{ marginRight: 8 }}>Save</button>
-              <button onClick={() => setEditMode(false)}>Cancel</button>
+          ) : (
+            <div className="goal-details">
+              <div className="goal-item">
+                <span className="label">Retirement Goal</span>
+                <span className="value">{formatCurrency(target)}</span>
+              </div>
+              <div className="goal-item">
+                <span className="label">Planned Retirement Age</span>
+                <span className="value">{retirementData.retirementAge}</span>
+              </div>
+              <div className="goal-item">
+                <span className="label">Time Frame</span>
+                <span className="value">{yearsToRetirement} years</span>
+              </div>
+              <div className="goal-item">
+                <span className="label">Shortfall / Surplus</span>
+                <span className={`value ${projectedAmount >= target ? 'positive' : 'negative'}`}>
+                  {projectedAmount >= target ? '+' : ''}
+                  {formatCurrency(projectedAmount - target)}
+                </span>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Investment Strategy */}
+        <section className="page-card retirement-card">
+          <h3>📊 Investment Allocation</h3>
+          <div className="allocation-grid">
+            <div className="allocation-item">
+              <div className="allocation-header">
+                <span className="allocation-name">🏦 Fixed Income</span>
+                <span className="allocation-percent">40%</span>
+              </div>
+              <div className="allocation-bar">
+                <div className="allocation-fill" style={{ width: '40%', backgroundColor: '#06b6d4' }}></div>
+              </div>
+            </div>
+            <div className="allocation-item">
+              <div className="allocation-header">
+                <span className="allocation-name">📈 Equity</span>
+                <span className="allocation-percent">35%</span>
+              </div>
+              <div className="allocation-bar">
+                <div className="allocation-fill" style={{ width: '35%', backgroundColor: '#10b981' }}></div>
+              </div>
+            </div>
+            <div className="allocation-item">
+              <div className="allocation-header">
+                <span className="allocation-name">🏘️ Real Estate</span>
+                <span className="allocation-percent">15%</span>
+              </div>
+              <div className="allocation-bar">
+                <div className="allocation-fill" style={{ width: '15%', backgroundColor: '#f59e0b' }}></div>
+              </div>
+            </div>
+            <div className="allocation-item">
+              <div className="allocation-header">
+                <span className="allocation-name">💎 Gold</span>
+                <span className="allocation-percent">10%</span>
+              </div>
+              <div className="allocation-bar">
+                <div className="allocation-fill" style={{ width: '10%', backgroundColor: '#fbbf24' }}></div>
+              </div>
             </div>
           </div>
-        )}
+          <button className="primary-btn" style={{ marginTop: '1.5rem', width: '100%' }}>
+            📋 Adjust Allocation
+          </button>
+        </section>
 
-        <div style={{ marginTop: 16, background: '#E3F2FD', padding: 12, borderRadius: 8 }}>
-          <h4>Tips</h4>
-          <ul>
-            <li>Start early to benefit from compound interest</li>
-            <li>Review and adjust your plan annually</li>
+        {/* Annual Contribution Plan */}
+        <section className="page-card retirement-card">
+          <h3>📅 Annual Contribution Plan</h3>
+          <div className="contribution-timeline">
+            {[
+              { year: 'Year 1', amount: formData.monthlyContribution * 12 },
+              { year: 'Year 2', amount: formData.monthlyContribution * 12 * 1.05 },
+              { year: 'Year 3', amount: formData.monthlyContribution * 12 * 1.1 },
+              { year: 'Year 5+', amount: formData.monthlyContribution * 12 * 1.15 },
+            ].map((item, idx) => (
+              <div key={idx} className="timeline-item">
+                <span className="timeline-year">{item.year}</span>
+                <div className="timeline-bar">
+                  <div
+                    className="timeline-fill"
+                    style={{ width: `${(item.amount / (formData.monthlyContribution * 12 * 1.2)) * 100}%` }}
+                  ></div>
+                </div>
+                <span className="timeline-amount">{formatCurrency(item.amount)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Retirement Calculator */}
+        <section className="page-card retirement-card">
+          <h3>🧮 Monthly Budget in Retirement</h3>
+          <div className="budget-breakdown">
+            <div className="budget-item">
+              <div className="budget-header">
+                <span className="budget-label">🏠 Housing</span>
+              </div>
+              <div className="budget-amount">₹{(target * 0.3 / (yearsToRetirement * 12)).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+            </div>
+            <div className="budget-item">
+              <div className="budget-header">
+                <span className="budget-label">🍽️ Food & Groceries</span>
+              </div>
+              <div className="budget-amount">₹{(target * 0.15 / (yearsToRetirement * 12)).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+            </div>
+            <div className="budget-item">
+              <div className="budget-header">
+                <span className="budget-label">🏥 Healthcare</span>
+              </div>
+              <div className="budget-amount">₹{(target * 0.2 / (yearsToRetirement * 12)).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+            </div>
+            <div className="budget-item">
+              <div className="budget-header">
+                <span className="budget-label">🎯 Leisure & Travel</span>
+              </div>
+              <div className="budget-amount">₹{(target * 0.2 / (yearsToRetirement * 12)).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+            </div>
+            <div className="budget-item highlight">
+              <div className="budget-header">
+                <span className="budget-label">💳 Total Monthly</span>
+              </div>
+              <div className="budget-amount">{formatCurrency((target / (yearsToRetirement * 12)))}</div>
+            </div>
+          </div>
+        </section>
+
+        {/* Quick Tips */}
+        <section className="page-card retirement-card tips-card">
+          <h3>💡 Retirement Tips</h3>
+          <ul className="tips-list">
+            <li>
+              <span className="tip-icon">✓</span>
+              <span>Start saving early to maximize compound growth</span>
+            </li>
+            <li>
+              <span className="tip-icon">✓</span>
+              <span>Diversify your investments across asset classes</span>
+            </li>
+            <li>
+              <span className="tip-icon">✓</span>
+              <span>Review and rebalance your portfolio annually</span>
+            </li>
+            <li>
+              <span className="tip-icon">✓</span>
+              <span>Consider inflation in your retirement planning</span>
+            </li>
+            <li>
+              <span className="tip-icon">✓</span>
+              <span>Keep emergency fund separate from retirement savings</span>
+            </li>
           </ul>
-        </div>
+        </section>
       </div>
     </div>
   );

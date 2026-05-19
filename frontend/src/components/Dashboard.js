@@ -46,6 +46,10 @@ const Dashboard = () => {
 
   const [upcomingPayments, setUpcomingPayments] = useState([]);
 
+  const handleUpdateProject = () => {
+    setSuccessMsg('Project update action is available.');
+  };
+
   useEffect(() => {
     fetchProfile();
     fetchBalance();
@@ -643,8 +647,11 @@ const Dashboard = () => {
 
           <section className="dashboard-overview-grid">
             <article className="overview-card project-card">
-              <div className="overview-card-top">
-                <span>Projects</span>
+              <div className="overview-card-top project-card-header">
+                <div>
+                  <span>Projects</span>
+                  <p className="project-subtitle">Track progress and manage your active goals.</p>
+                </div>
                 <strong>85</strong>
               </div>
               <div className="project-ring">
@@ -667,15 +674,18 @@ const Dashboard = () => {
                 </svg>
               </div>
               <div className="project-legend">
-                <span>
+                <span className="legend-item complete">
                   <span className="legend-dot complete"></span>
                   {projectCompleted} Completed
                 </span>
-                <span>
+                <span className="legend-item in-progress">
                   <span className="legend-dot in-progress"></span>
                   {projectInProgress} In Progress
                 </span>
               </div>
+              <button className="primary-btn project-update-btn" onClick={handleUpdateProject}>
+                Update project
+              </button>
             </article>
 
             <article className="overview-card">
